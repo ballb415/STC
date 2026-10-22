@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>การลงทะเบียน – EduSched AI</title>
+  <meta name="description" content="ระบบจัดการข้อมูลการลงทะเบียนรายวิชาของกลุ่มเรียน" />
+
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('edusched-theme');
+        if (!saved) {
+          saved = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', saved);
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/registration.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+  <div class="app-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <a href="index.html" class="sidebar-logo" title="หน้าหลัก EduSched AI">
+        <div class="sidebar-logo-icon"><i class="fas fa-graduation-cap"></i></div>
+        <div class="sidebar-logo-text">
+          <div class="brand">EduSched <span class="brand-ai">AI</span></div>
+          <div class="sub">ระบบจัดตารางสอนอัจฉริยะ</div>
+        </div>
+      </a>
+      <nav class="sidebar-nav">
+        <span class="nav-section-label">เมนูหลัก</span>
+        <a href="index.html" class="nav-item"><span class="nav-icon"><i class="fas fa-table-cells-large"></i></span>แดชบอร์ด</a>
+        <a href="schedule.html" class="nav-item"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span>ตารางสอน</a>
+        <span class="nav-section-label">ข้อมูลพื้นฐาน</span>
+        <a href="rooms.html" class="nav-item"><span class="nav-icon"><i class="fas fa-door-open"></i></span>ห้องเรียน</a>
+        <a href="groups.html" class="nav-item"><span class="nav-icon"><i class="fas fa-users-rectangle"></i></span>กลุ่มเรียน</a>
+        <a href="teachers.html" class="nav-item"><span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span>อาจารย์ผู้สอน</a>
+        <a href="subjects.html" class="nav-item"><span class="nav-icon"><i class="fas fa-book-open"></i></span>รายวิชา</a>
+        <span class="nav-section-label">การจัดการ</span>
+        <a href="teaching-load.html" class="nav-item"><span class="nav-icon"><i class="fas fa-person-chalkboard"></i></span>ภาระงานสอน</a>
+        <a href="registration.html" class="nav-item active"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>การลงทะเบียน</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-card">
+          <div class="user-avatar"><i class="fas fa-user-shield"></i></div>
+          <div class="user-info">
+            <div class="name">อาจารย์ผู้ดูแลระบบ</div>
+            <div class="role">ผู้ดูแลระบบ (Admin)</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <header class="top-header">
+        <div class="header-title">
+          <i class="fas fa-clipboard-list" style="color:var(--primary);font-size:17px;"></i>
+          <span>ข้อมูลการลงทะเบียน</span>
+        </div>
+        <div class="header-badge"><i class="fas fa-circle"></i> EduSched AI</div>
+        <div class="header-actions">
+          <button class="icon-btn" id="btn-theme-toggle" onclick="toggleTheme()" title="สลับธีม สว่าง/มืด" aria-label="สลับธีม สว่าง/มืด">
+            <i class="fas fa-sun"></i>
+          </button>
+          <button class="icon-btn" title="รีเฟรชข้อมูล" aria-label="รีเฟรชข้อมูล" onclick="REG.loadAll()">
+            <i class="fas fa-arrows-rotate"></i>
+          </button>
+          <button class="icon-btn" title="ส่งออก Excel" aria-label="ส่งออก Excel" onclick="REG.exportExcel()">
+            <i class="fas fa-file-excel" style="color:var(--success);"></i>
+          </button>
+        </div>
+      </header>
+
+      <main class="page-content">
+        <div class="page-header">
+          <div class="page-header-left">
+            <a href="index.html" class="back-btn" title="กลับหน้าแดชบอร์ด"><i class="fas fa-arrow-left"></i></a>
+            <div>
+              <h1 class="page-title">การลงทะเบียน</h1>
+              <p class="page-subtitle">จัดการและตรวจสอบการลงทะเบียนรายวิชาของแต่ละกลุ่มเรียน สำหรับนำไปคำนวณตารางสอน</p>
+            </div>
+          </div>
+          <div class="page-actions">
+            <div class="tab-bar">
+              <div class="tab-item active" id="tab-form" onclick="REG.switchTab('form')">
+                <i class="fas fa-plus"></i> เพิ่มข้อมูล
+              </div>
+              <div class="tab-item" id="tab-table" onclick="REG.switchTab('table')">
+                <i class="fas fa-table"></i> ดูข้อมูลการลงทะเบียน
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="REG.downloadTemplate()" title="ดาวน์โหลดไฟล์แม่แบบ Excel สำหรับการลงทะเบียน">
+              <i class="fas fa-file-arrow-down"></i> ดาวน์โหลดแม่แบบ
+            </button>
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;" title="นำเข้าไฟล์ Excel (.xlsx, .xls, .csv)">
+              <i class="fas fa-file-import"></i> นำเข้าไฟล์
+              <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="REG.importExcel(this)" />
+            </label>
+          </div>
+        </div>
+
+        <!-- FORM -->
+        <div id="section-form">
+          <div class="form-card reg-form-card" style="max-width:640px;margin:0 auto;">
+            <div class="reg-form-header">
+              <div class="reg-form-icon"><i class="fas fa-clipboard-list"></i></div>
+              <div>
+                <div class="reg-form-title">บันทึกการลงทะเบียนรายวิชา</div>
+                <div class="reg-form-sub">เชื่อมโยงรายวิชากับกลุ่มเรียนที่ต้องเรียนในภาคเรียนนี้</div>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="form-grid" style="display:flex;flex-direction:column;gap:16px;">
+              <div class="form-group">
+                <label class="form-label" for="reg-subject">รายวิชาที่ลงทะเบียน (subject_id) <span class="required">*</span></label>
+                <div class="select-wrapper">
+                  <select class="form-select" id="reg-subject">
+                    <option value="">-- กรุณาเลือกรายวิชา --</option>
+                  </select>
+                </div>
+                <div class="form-hint">เลือกวิชาจากหลักสูตรที่มีอยู่ในระบบ</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="reg-group1">กลุ่มเรียนที่ลงทะเบียน (group_id) <span class="required">*</span></label>
+                <div class="select-wrapper">
+                  <select class="form-select" id="reg-group1">
+                    <option value="">-- กรุณาเลือกกลุ่มเรียน --</option>
+                  </select>
+                </div>
+                <div class="form-hint">ระบบจะป้องกันไม่ให้บันทึกกลุ่มเรียนซ้ำในรายวิชาเดิม</div>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="form-actions">
+              <button class="btn btn-primary" id="btn-save-reg" onclick="REG.save()">
+                <i class="fas fa-floppy-disk"></i> บันทึกการลงทะเบียน
+              </button>
+              <button class="btn btn-ghost" onclick="REG.clearForm()">
+                <i class="fas fa-rotate-left"></i> ล้างข้อมูล
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABLE -->
+        <div id="section-table" class="hidden">
+          <div class="table-card">
+            <div class="table-header">
+              <span class="table-title">
+                <i class="fas fa-list-check" style="color:var(--primary);margin-right:8px;"></i>
+                รายการลงทะเบียนเรียนทั้งหมด
+              </span>
+              <div class="table-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="reg-search" placeholder="ค้นหารหัสวิชา หรือกลุ่มเรียน..." oninput="REG.filterTable(this.value)" />
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="reg-table">
+                <thead>
+                  <tr>
+                    <th style="width:70px;">ลำดับ</th>
+                    <th style="width:210px;white-space:nowrap;">รหัสวิชา</th>
+                    <th>ชื่อรายวิชา</th>
+                    <th style="width:140px;">รหัสกลุ่ม</th>
+                    <th>ชื่อกลุ่มเรียน</th>
+                    <th style="width:140px;text-align:center;">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="reg-tbody">
+                  <tr>
+                    <td colspan="6" class="table-empty">
+                      <div class="spinner"></div>
+                      <p style="margin-top:10px;">กำลังโหลดข้อมูลการลงทะเบียนจากฐานข้อมูล...</p>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Delete Modal -->
+  <div class="modal-overlay hidden" id="deleteModal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <div class="modal-title" style="color:var(--danger);display:flex;align-items:center;gap:8px;">
+          <i class="fas fa-triangle-exclamation"></i> ยืนยันการลบการลงทะเบียน
+        </div>
+        <button class="modal-close" onclick="REG.closeDeleteModal()"><i class="fas fa-xmark"></i></button>
+      </div>
+      <p style="color:var(--text-secondary);font-size:14px;line-height:1.5;">
+        คุณแน่ใจหรือไม่ว่าต้องการลบรายการลงทะเบียนนี้? หากลบ คาบวิชานี้จะไม่ถูกนำไปจัดในตารางสอนของกลุ่มเรียนดังกล่าว
+      </p>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="REG.closeDeleteModal()">ยกเลิก</button>
+        <button class="btn btn-danger" id="btn-confirm-delete" onclick="REG.confirmDelete()">
+          <i class="fas fa-trash"></i> ยืนยันการลบ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/supabase-config.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/registration.js"></script>
+</body>
+</html>

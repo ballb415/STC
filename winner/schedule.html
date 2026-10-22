@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ตารางสอน – EduSched AI</title>
+  <meta name="description" content="ระบบจัดการตารางเรียนและตารางสอนอัจฉริยะ จัดตารางอัตโนมัติด้วย AI Agent (Plan-Act-Check)" />
+
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('edusched-theme');
+        if (!saved) {
+          saved = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', saved);
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/schedule.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <!-- Background Glow Orbs -->
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="app-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <a href="index.html" class="sidebar-logo" title="หน้าหลัก EduSched AI">
+        <div class="sidebar-logo-icon"><i class="fas fa-graduation-cap"></i></div>
+        <div class="sidebar-logo-text">
+          <div class="brand">EduSched <span class="brand-ai">AI</span></div>
+          <div class="sub">ระบบจัดตารางสอนอัจฉริยะ</div>
+        </div>
+      </a>
+
+      <nav class="sidebar-nav">
+        <span class="nav-section-label">เมนูหลัก</span>
+        <a href="index.html" class="nav-item">
+          <span class="nav-icon"><i class="fas fa-table-cells-large"></i></span>แดชบอร์ด
+        </a>
+        <a href="schedule.html" class="nav-item active">
+          <span class="nav-icon"><i class="fas fa-calendar-days"></i></span>ตารางสอน
+        </a>
+
+        <span class="nav-section-label">ข้อมูลพื้นฐาน</span>
+        <a href="rooms.html" class="nav-item">
+          <span class="nav-icon"><i class="fas fa-door-open"></i></span>ห้องเรียน
+        </a>
+        <a href="groups.html" class="nav-item">
+          <span class="nav-icon"><i class="fas fa-users-rectangle"></i></span>กลุ่มเรียน
+        </a>
+        <a href="teachers.html" class="nav-item">
+          <span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span>อาจารย์ผู้สอน
+        </a>
+        <a href="subjects.html" class="nav-item">
+          <span class="nav-icon"><i class="fas fa-book-open"></i></span>รายวิชา
+        </a>
+
+        <span class="nav-section-label">การจัดการ</span>
+        <a href="teaching-load.html" class="nav-item">
+          <span class="nav-icon"><i class="fas fa-person-chalkboard"></i></span>ภาระงานสอน
+        </a>
+        <a href="registration.html" class="nav-item">
+          <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>การลงทะเบียน
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-card">
+          <div class="user-avatar"><i class="fas fa-user-shield"></i></div>
+          <div class="user-info">
+            <div class="name">อาจารย์ผู้ดูแลระบบ</div>
+            <div class="role">ผู้ดูแลระบบ (Admin)</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="header-title">
+          <i class="fas fa-calendar-days" style="color:var(--primary);font-size:17px;"></i>
+          <span>ระบบจัดตารางสอน</span>
+        </div>
+        <div class="header-badge"><i class="fas fa-circle"></i> EduSched AI Engine</div>
+        <div class="header-actions">
+          <button class="icon-btn" id="btn-theme-toggle" onclick="toggleTheme()" title="สลับธีม สว่าง/มืด" aria-label="สลับธีม สว่าง/มืด">
+            <i class="fas fa-sun"></i>
+          </button>
+          <button class="icon-btn" title="รีเฟรชข้อมูล" aria-label="รีเฟรชข้อมูล" onclick="SCHED.init()">
+            <i class="fas fa-arrows-rotate"></i>
+          </button>
+          <button class="icon-btn" title="พิมพ์ตารางสอน" aria-label="พิมพ์ตารางสอน" onclick="SCHED.printSchedule()">
+            <i class="fas fa-print"></i>
+          </button>
+          <button class="icon-btn" title="ส่งออก Excel" aria-label="ส่งออก Excel" onclick="SCHED.exportExcel()">
+            <i class="fas fa-file-excel" style="color:var(--success);"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Page Content -->
+      <main class="page-content sched-page-container">
+        <!-- Page Header -->
+        <div class="sched-header-section">
+          <a href="index.html" class="sched-back-btn" title="กลับหน้าแดชบอร์ด">
+            <i class="fas fa-chevron-left"></i>
+          </a>
+          <div class="sched-header-titles">
+            <h1 class="sched-title">ตารางสอน</h1>
+            <p class="sched-subtitle">บริหารจัดการตารางเรียนและตารางสอน ด้วยกลไก AI Plan-Act-Check และตรวจสอบ 8 Hard Constraints</p>
+          </div>
+        </div>
+
+        <!-- Controls Row -->
+        <div class="sched-controls-row">
+          <!-- Left: View & Group Selectors -->
+          <div class="sched-left-filters">
+            <div class="sched-filter-item">
+              <label class="sched-filter-label" for="sched-view-type">มุมมอง (View)</label>
+              <select class="sched-select-input" id="sched-view-type" onchange="SCHED.onViewTypeChange()">
+                <option value="student">กลุ่มเรียน (Student Group)</option>
+                <option value="teacher">อาจารย์ผู้สอน (Teacher)</option>
+                <option value="room">ห้องเรียน (Room)</option>
+                <option value="subject">รายวิชา (Subject)</option>
+                <option value="overview">ตารางรวมทั้งหมด (Overview)</option>
+              </select>
+            </div>
+
+            <div class="sched-filter-item" id="sched-target-wrapper">
+              <label class="sched-filter-label" id="sched-target-label" for="sched-target-select">กลุ่มเรียน (Group)</label>
+              <select class="sched-select-input" id="sched-target-select" onchange="SCHED.onTargetChange()" style="min-width: 220px;">
+                <option value="">-- เลือกกลุ่มเรียน --</option>
+              </select>
+            </div>
+
+            <div class="sched-filter-item">
+              <label class="sched-filter-label" for="sched-dataset-select">ชุดข้อมูลแข่งขัน (Benchmark)</label>
+              <select class="sched-select-input" id="sched-dataset-select" onchange="SCHED.onDatasetChange(this.value)" style="border-color:var(--primary);max-width:240px;">
+                <option value="">-- โหลดชุดข้อมูลแข่งขัน --</option>
+                <option value="small">Small: ขนาดเล็ก (3 กลุ่ม, 5 ครู, 4 ห้อง)</option>
+                <option value="large">Large: ขนาดใหญ่ (6 กลุ่ม, 12 ครู, 11 ห้อง)</option>
+                <option value="infeasible">Infeasible: ข้อจำกัดขัดแย้ง (ตรวจข้อผิดพลาด)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Right: Action Buttons -->
+          <div class="sched-right-actions">
+            <!-- + เพิ่มรายวิชา -->
+            <button class="sched-action-btn btn-sched-add" onclick="SCHED.openAddModal()" title="เพิ่มรายวิชาในตาราง">
+              <i class="fas fa-plus"></i> เพิ่มรายวิชา
+            </button>
+
+            <!-- Seed Stepper -->
+            <div class="sched-seed-wrapper" title="Seed สุ่มรูปแบบการจัดตาราง">
+              <span class="seed-title">Seed</span>
+              <input type="number" id="sched-seed" value="1" min="1" max="99999" class="seed-num-input" onchange="SCHED.onSeedChange()" />
+            </div>
+
+            <!-- จัดตารางอัตโนมัติ (AI) -->
+            <button class="sched-action-btn btn-sched-ai" id="btn-auto-sched" onclick="SCHED.generateAutoSchedule()" title="ประมวลผลจัดตารางสอนอัตโนมัติตามข้อมูลจริงด้วย Plan-Act-Check Agent">
+              <i class="fas fa-calendar-check"></i> จัดตารางอัตโนมัติ (AI)
+            </button>
+
+            <!-- ตรวจสอบข้อขัดแย้ง (Validator) -->
+            <button class="sched-action-btn btn-sched-validator" onclick="SCHED.runValidatorAndShowModal()" title="ตรวจสอบความถูกต้องด้วย Independent Validator">
+              <i class="fas fa-shield-halved" style="color:var(--cyan)"></i> ตรวจสอบตาราง (Validator)
+            </button>
+
+            <!-- ล้างตาราง -->
+            <button class="sched-action-btn btn-sched-clear" onclick="SCHED.openClearModal()" title="ล้างตารางสอน">
+              <i class="fas fa-trash-can"></i> ล้างตาราง
+            </button>
+
+            <!-- พิมพ์ตาราง -->
+            <button class="sched-action-btn btn-sched-print" onclick="SCHED.printSchedule()" title="พิมพ์ตารางสอน / ส่งออก PDF">
+              <i class="fas fa-print"></i> พิมพ์ตาราง
+            </button>
+
+            <!-- ส่งออก Excel -->
+            <button class="sched-action-btn btn-sched-export" onclick="SCHED.exportExcel()" title="ส่งออกตารางเป็น Excel">
+              <i class="fas fa-file-excel" style="color:var(--success);"></i> Excel
+            </button>
+
+            <!-- ส่งออก CSV -->
+            <button class="sched-action-btn btn-sched-export" onclick="SCHED.exportCSV()" title="ส่งออกตารางเป็น CSV">
+              <i class="fas fa-file-csv"></i> CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Metrics & Stats Bar -->
+        <div class="sched-metrics-bar" id="sched-metrics-bar">
+          <div class="metric-pill success" id="pill-hard-score" title="คะแนนความถูกต้องตาม Hard Constraints (ต้อง 100%)">
+            <i class="fas fa-circle-check"></i>
+            <span class="label">Hard Constraints:</span>
+            <span class="val" id="val-hard-score">100% (ผ่าน)</span>
+          </div>
+          <div class="metric-pill info" id="pill-soft-score" title="คะแนนคุณภาพตารางตาม Soft Constraints">
+            <i class="fas fa-chart-line"></i>
+            <span class="label">คุณภาพการจัด (Soft):</span>
+            <span class="val" id="val-soft-score">--</span>
+          </div>
+          <div class="metric-pill" id="pill-conflicts" style="cursor:pointer;" onclick="SCHED.runValidatorAndShowModal()" title="คลิกเพื่อดูรายละเอียดข้อขัดแย้งทั้งหมด">
+            <i class="fas fa-triangle-exclamation"></i>
+            <span class="label">ข้อขัดแย้ง:</span>
+            <span class="val" id="val-conflicts">0 รายการ</span>
+          </div>
+          <div class="metric-pill" id="pill-room-util" title="อัตราการใช้งานห้องเรียนปัจจุบัน">
+            <i class="fas fa-door-open"></i>
+            <span class="label">อัตราการใช้ห้อง:</span>
+            <span class="val" id="val-room-util">--</span>
+          </div>
+          <div class="metric-pill" id="pill-workload" title="ภาระงานสอนของเป้าหมายที่เลือก">
+            <i class="fas fa-clock"></i>
+            <span class="label">ภาระงาน:</span>
+            <span class="val" id="val-workload">--</span>
+          </div>
+          <div class="metric-pill" id="pill-placed" title="จำนวนคาบที่จัดสำเร็จ">
+            <i class="fas fa-calendar-days"></i>
+            <span class="label">คาบเรียนที่จัด:</span>
+            <span class="val" id="val-placed">--</span>
+          </div>
+        </div>
+
+        <!-- Timetable Card Container -->
+        <div class="timetable-main-card">
+          <!-- Print Official Header (Visible only when printing) -->
+          <div class="print-official-header">
+            <div class="print-inst-name">วิทยาลัยเทคนิค / อาชีวศึกษา · สำนักงานคณะกรรมการการอาชีวศึกษา (สอศ.)</div>
+            <div class="print-doc-title">ตารางเรียนและตารางสอน ประจำภาคเรียนที่ 1 ปีการศึกษา 2568</div>
+            <div class="print-target-info" id="print-target-info">กลุ่มเรียน / อาจารย์ผู้สอน / ห้องเรียน</div>
+          </div>
+
+          <!-- Empty State Panel -->
+          <div id="sched-empty-panel" class="sched-empty-panel hidden">
+            <div class="sched-empty-icon">
+              <i class="fa-regular fa-calendar-days"></i>
+            </div>
+            <h2 class="sched-empty-title">ยังไม่มีข้อมูลตารางสอน</h2>
+            <p class="sched-empty-desc" id="sched-empty-desc">
+              เลือกข้อมูลที่ต้องการแสดงเพื่อดูตาราง หรือกดปุ่ม <strong>"จัดตารางอัตโนมัติ (AI)"</strong>
+            </p>
+            <button class="sched-action-btn btn-sched-ai" onclick="SCHED.generateAutoSchedule()">
+              <i class="fas fa-calendar-check"></i> จัดตารางอัตโนมัติ (AI)
+            </button>
+          </div>
+
+          <!-- The Table Grid -->
+          <div class="table-responsive">
+            <table class="timetable-grid" id="timetable-grid">
+              <thead>
+                <!-- Row 1: Times -->
+                <tr>
+                  <th class="col-time-day">เวลา</th>
+                  <th>07:45 - 08:00</th>
+                  <th>08:00 - 09:00</th>
+                  <th>09:00 - 10:00</th>
+                  <th>10:00 - 11:00</th>
+                  <th>11:00 - 12:00</th>
+                  <th>12:00 - 13:00</th>
+                  <th>13:00 - 14:00</th>
+                  <th>14:00 - 15:00</th>
+                  <th>15:00 - 16:00</th>
+                  <th>16:00 - 17:00</th>
+                  <th>17:00 - 18:00</th>
+                  <th>18:00 - 19:00</th>
+                </tr>
+                <!-- Row 2: Periods -->
+                <tr>
+                  <th class="col-time-day">วัน / คาบ</th>
+                  <th>โฮมรูม</th>
+                  <th>1</th>
+                  <th>2</th>
+                  <th>3</th>
+                  <th>4</th>
+                  <th>พัก</th>
+                  <th>5</th>
+                  <th>6</th>
+                  <th>7</th>
+                  <th>8</th>
+                  <th>9</th>
+                  <th>10</th>
+                </tr>
+              </thead>
+              <tbody id="timetable-tbody">
+                <!-- Built dynamically by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Add / Edit Slot Modal ── -->
+  <div class="modal-overlay hidden" id="addModal">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <div class="modal-title" id="add-modal-title">
+          <i class="fas fa-calendar-plus" style="color:var(--primary);margin-right:8px;"></i>
+          เพิ่มรายวิชาในตารางสอน
+        </div>
+        <button class="modal-close" onclick="SCHED.closeAddModal()"><i class="fas fa-xmark"></i></button>
+      </div>
+
+      <div class="form-grid" style="display:flex;flex-direction:column;gap:14px;">
+        <div class="form-group">
+          <label class="form-label" for="modal-group">กลุ่มเรียน (Student Group) <span class="required">*</span></label>
+          <div class="select-wrapper">
+            <select class="form-select" id="modal-group" onchange="SCHED.onModalGroupChange()">
+              <option value="">-- เลือกกลุ่มเรียน --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="modal-subject">รายวิชา (Subject) <span class="required">*</span></label>
+          <div class="select-wrapper">
+            <select class="form-select" id="modal-subject" onchange="SCHED.onModalSubjectChange()">
+              <option value="">-- เลือกรายวิชา --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="modal-teacher">อาจารย์ผู้สอน (Teacher) <span class="required">*</span></label>
+          <div class="select-wrapper">
+            <select class="form-select" id="modal-teacher" onchange="SCHED.validateModalSlotConflict()">
+              <option value="">-- เลือกอาจารย์ผู้สอน --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="modal-room">ห้องเรียน (Room) <span class="required">*</span></label>
+          <div class="select-wrapper">
+            <select class="form-select" id="modal-room" onchange="SCHED.validateModalSlotConflict()">
+              <option value="">-- เลือกห้องเรียน --</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label" for="modal-day">วัน (Day) <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select class="form-select" id="modal-day" onchange="SCHED.validateModalSlotConflict()">
+                <option value="วันจันทร์">วันจันทร์</option>
+                <option value="วันอังคาร">วันอังคาร</option>
+                <option value="วันพุธ">วันพุธ</option>
+                <option value="วันพฤหัสบดี">วันพฤหัสบดี</option>
+                <option value="วันศุกร์">วันศุกร์</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="modal-start">เริ่มคาบ <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select class="form-select" id="modal-start" onchange="SCHED.validateModalSlotConflict()">
+                <option value="0">คาบ 0 (07:45 โฮมรูม/กิจกรรม)</option>
+                <option value="1">คาบ 1 (08:00)</option>
+                <option value="2">คาบ 2 (09:00)</option>
+                <option value="3">คาบ 3 (10:00)</option>
+                <option value="4">คาบ 4 (11:00)</option>
+                <option value="5">คาบ 5 (13:00)</option>
+                <option value="6">คาบ 6 (14:00)</option>
+                <option value="7">คาบ 7 (15:00)</option>
+                <option value="8">คาบ 8 (16:00)</option>
+                <option value="9">คาบ 9 (17:00)</option>
+                <option value="10">คาบ 10 (18:00)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="modal-periods">จำนวนคาบ</label>
+            <input type="number" id="modal-periods" class="form-input form-number" value="1" min="1" max="6" onchange="SCHED.validateModalSlotConflict()" />
+          </div>
+        </div>
+
+        <div id="modal-conflict-warning" class="hidden" style="padding:10px 14px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:var(--r);color:var(--danger);font-size:12.5px;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="SCHED.closeAddModal()">ยกเลิก</button>
+        <button class="btn btn-primary" id="btn-save-modal-slot" onclick="SCHED.saveModalSlot()">
+          <i class="fas fa-floppy-disk"></i> บันทึกลงตาราง
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Slot Detail Modal ── -->
+  <div class="modal-overlay hidden" id="slotDetailModal">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <div class="modal-title" style="display:flex;align-items:center;gap:8px;">
+          <i class="fas fa-calendar-day" style="color:var(--primary)"></i> รายละเอียดคาบเรียน
+        </div>
+        <button class="modal-close" onclick="SCHED.closeSlotDetail()"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div id="slot-detail-body" style="padding:12px 0;font-size:14px;line-height:1.8;"></div>
+      <div class="modal-footer" style="margin-top:16px;">
+        <button class="btn btn-ghost" onclick="SCHED.closeSlotDetail()">ปิด</button>
+        <button class="btn btn-danger" onclick="SCHED.deleteActiveSlot()">
+          <i class="fas fa-trash"></i> ลบคาบสอนนี้
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Delete Single Slot Modal ── -->
+  <div class="modal-overlay hidden" id="deleteSlotModal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <div class="modal-title" style="color:var(--danger);display:flex;align-items:center;gap:8px;">
+          <i class="fas fa-triangle-exclamation"></i> ยืนยันการลบคาบสอน
+        </div>
+        <button class="modal-close" onclick="SCHED.closeDeleteSlotModal()"><i class="fas fa-xmark"></i></button>
+      </div>
+      <p id="delete-slot-msg" style="color:var(--text-secondary);font-size:14px;line-height:1.5;">
+        คุณแน่ใจหรือไม่ว่าต้องการลบคาบสอนนี้ออกจากตาราง?
+      </p>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="SCHED.closeDeleteSlotModal()">ยกเลิก</button>
+        <button class="btn btn-danger" onclick="SCHED.confirmDeleteSlot()">
+          <i class="fas fa-trash"></i> ยืนยันการลบ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Clear All Schedule ── -->
+  <div class="modal-overlay hidden" id="clearModal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <div class="modal-title" style="color:var(--danger);display:flex;align-items:center;gap:8px;">
+          <i class="fas fa-triangle-exclamation"></i> ล้างตารางสอนทั้งหมด
+        </div>
+        <button class="modal-close" onclick="SCHED.closeClearModal()"><i class="fas fa-xmark"></i></button>
+      </div>
+      <p style="color:var(--text-secondary);font-size:14px;line-height:1.5;">
+        คุณแน่ใจหรือไม่ว่าต้องการล้างตารางสอนทั้งหมด? ข้อมูลคาบสอนทั้งหมดในระบบจะถูกลบออกจากฐานข้อมูล
+      </p>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="SCHED.closeClearModal()">ยกเลิก</button>
+        <button class="btn btn-danger" onclick="SCHED.confirmClearAll()">
+          <i class="fas fa-trash-can"></i> ยืนยันการล้างตาราง
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: AI Agent Plan-Act-Check Modal ── -->
+  <div class="modal-overlay hidden" id="agentModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div class="modal-title" style="display:flex;align-items:center;gap:10px;">
+          <i class="fas fa-robot" style="color:var(--primary)"></i>
+          <span>EduSched AI Agent · การประมวลผลจัดตารางสอน</span>
+        </div>
+        <button class="modal-close" onclick="SCHED.closeAgentModal()">
+          <i class="fas fa-xmark"></i>
+        </button>
+      </div>
+
+      <p style="font-size:13px;color:var(--text-secondary);">
+        ระบบจัดตารางสอนด้วยกระบวนการ <strong>Plan–Act–Check</strong> ควบคุมด้วย CSP Engine และตรวจสอบความถูกต้องด้วย Independent Validator
+      </p>
+
+      <!-- 3 Agent Step Cards -->
+      <div class="agent-step-list">
+        <!-- Step 1: PLAN -->
+        <div class="agent-step-card" id="agent-step-plan">
+          <div class="agent-step-icon" id="icon-step-plan"><i class="fas fa-lightbulb"></i></div>
+          <div class="agent-step-content">
+            <div class="agent-step-title">
+              <span>1. PLAN (การวิเคราะห์โจทย์และแบบจำลองข้อจำกัด)</span>
+              <span class="badge badge-gray" id="badge-step-plan">รอดำเนินการ</span>
+            </div>
+            <div class="agent-step-desc" id="desc-step-plan">
+              โหลดข้อมูล วิเคราะห์ความสัมพันธ์วิชา-ครู-กลุ่ม-ห้อง และจัดลำดับตัวแปรด้วย Most Constrained Variable (MCV)
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: ACT -->
+        <div class="agent-step-card" id="agent-step-act">
+          <div class="agent-step-icon" id="icon-step-act"><i class="fas fa-gears"></i></div>
+          <div class="agent-step-content">
+            <div class="agent-step-title">
+              <span>2. ACT (การคำนวณด้วย CSP Heuristic Backtracking)</span>
+              <span class="badge badge-gray" id="badge-step-act">รอดำเนินการ</span>
+            </div>
+            <div class="agent-step-desc" id="desc-step-act">
+              ค้นหาสล็อตที่ไม่มีข้อขัดแย้ง จัดกลุ่มวิชาปฏิบัติเป็นบล็อกต่อเนื่อง 2 คาบ และจัดวิชาทฤษฎีลงห้องที่เหมาะสม
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: CHECK -->
+        <div class="agent-step-card" id="agent-step-check">
+          <div class="agent-step-icon" id="icon-step-check"><i class="fas fa-shield-halved"></i></div>
+          <div class="agent-step-content">
+            <div class="agent-step-title">
+              <span>3. CHECK (การตรวจสอบด้วย Independent Validator)</span>
+              <span class="badge badge-gray" id="badge-step-check">รอดำเนินการ</span>
+            </div>
+            <div class="agent-step-desc" id="desc-step-check">
+              ตรวจสอบ 8 Hard Constraints (ครู/ห้อง/กลุ่มชนกัน, ความจุ, พักกลางวัน) และ 5 Soft Constraints แยกอิสระ 100%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Execution Log Box -->
+      <div style="font-size:12px;font-weight:600;color:var(--text-secondary);display:flex;justify-content:space-between;align-items:center;">
+        <span><i class="fas fa-terminal"></i> ข้อมูลบันทึกการทำงานของ Agent (Execution Log)</span>
+        <span id="agent-timer" style="color:var(--primary);font-family:monospace;font-weight:700;">0 ms</span>
+      </div>
+      <div class="agent-log-box" id="agent-log-box">
+        [SYSTEM] พร้อมประมวลผล...
+      </div>
+
+      <div class="modal-footer" style="margin-top:16px;">
+        <button class="btn btn-ghost" onclick="SCHED.closeAgentModal()">ปิด</button>
+        <button class="btn btn-primary" id="btn-agent-apply" onclick="SCHED.applyAgentSchedule()" disabled>
+          <i class="fas fa-floppy-disk"></i> ยืนยันบันทึกผลลัพธ์ลงฐานข้อมูล
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Conflict Matrix & Diagnostic Report ── -->
+  <div class="modal-overlay hidden" id="conflictMatrixModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div class="modal-title" style="color:var(--warning);display:flex;align-items:center;gap:8px;">
+          <i class="fas fa-shield-halved"></i> รายงานการตรวจสอบข้อขัดแย้ง (Validation Audit)
+        </div>
+        <button class="modal-close" onclick="SCHED.closeConflictModal()">
+          <i class="fas fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="conflict-modal-summary" style="margin-bottom:14px;"></div>
+
+      <div style="max-height: 320px; overflow-y: auto;">
+        <table class="conflict-table" id="conflict-detail-table">
+          <thead>
+            <tr>
+              <th>ประเภท</th>
+              <th>ระดับ</th>
+              <th>วัน / คาบ</th>
+              <th>รายละเอียดข้อขัดแย้ง</th>
+            </tr>
+          </thead>
+          <tbody id="conflict-table-body">
+            <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">ไม่พบข้อขัดแย้ง ตารางสมบูรณ์ 100%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer" style="margin-top:16px;">
+        <button class="btn btn-ghost" onclick="SCHED.closeConflictModal()">ปิด</button>
+        <button class="btn btn-primary" onclick="SCHED.closeConflictModal(); SCHED.generateAutoSchedule();">
+          <i class="fas fa-rotate"></i> จัดตารางใหม่ด้วย AI
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="js/supabase-config.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/competition-data.js"></script>
+  <script src="js/timetable-validator.js"></script>
+  <script src="js/schedule.js"></script>
+</body>
+</html>
